@@ -3,15 +3,6 @@ FROM dockerfile/ubuntu
 
 MAINTAINER Paul <paul@wizmacau.com>
 
-# Install Java.
-RUN \
-  echo oracle-java6-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections && \
-  add-apt-repository -y ppa:webupd8team/java && \
-  apt-get update && \
-  apt-get install -y oracle-java6-installer && \
-  rm -rf /var/lib/apt/lists/* && \
-  rm -rf /var/cache/oracle-jdk6-installer
-
 # apache php
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get -yq install \
@@ -65,6 +56,29 @@ RUN wget -q https://archive.apache.org/dist/tomcat/tomcat-${TOMCAT_MAJOR_VERSION
     rm -f apache-tomcat-*.tar.gz && \
     mv apache-tomcat* tomcat 
 
+# Install Java.
+RUN \
+  echo oracle-java6-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections && \
+  add-apt-repository -y ppa:webupd8team/java && \
+  apt-get update && \
+  apt-get install -y oracle-java6-installer && \
+  rm -rf /var/lib/apt/lists/* && \
+  rm -rf /var/cache/oracle-jdk6-installer
+
+# sshd
+RUN apt-get update && apt-get install -y openssh-server
+RUN mkdir /var/run/sshd
+RUN echo 'root:screencast' | chpasswd
+RUN sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+# SSH login fix. Otherwise user is kicked off after login
+RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+
+ENV NOTVISIBLE "in users profile"
+RUN echo "export VISIBLE=now" >> /etc/profile
+
+RUN /usr/sbin/sshd -D
+
 # Define commonly used JAVA_HOME variable
 ENV JAVA_HOME /usr/lib/jvm/java-6-oracle
 
@@ -79,9 +93,7 @@ ADD apache-run.sh /apache-run.sh
 RUN chmod +x /*.sh
 
 # Expose ports.
-EXPOSE 3306
-EXPOSE 80
-EXPOSE 8080
+EXPOSE 3306 22 80 8080
 
 # Define working directory.
 WORKDIR /data
